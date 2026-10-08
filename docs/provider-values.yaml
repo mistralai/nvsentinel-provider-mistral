@@ -1,0 +1,48 @@
+# OIDC workload identity. Complete setup: docs/installation.md.
+# Replace placeholders. No Compute API key is needed in this mode.
+compute:
+  endpoint: https://compute.example.invalid
+  project: example
+  region: example-region
+  auth:
+    mode: workloadIdentity
+    workloadIdentity:
+      # Public metadata returned when creating the Compute OIDC trust.
+      clientId: replace-with-trust-client-id
+      tokenUrl: https://compute.example.invalid/oauth2/token
+      audience: mistral-compute
+      expirationSeconds: 3600
+  tokenSecret:
+    name: ""
+
+# Must match the trust subject: system:serviceaccount:nvsentinel:nvsentinel-provider-mistral.
+serviceAccount:
+  name: nvsentinel-provider-mistral
+
+timeouts:
+  httpSeconds: 30
+  # Selects 75 seconds in workloadIdentity mode.
+  rpcSeconds: null
+
+# If the image requires registry authentication:
+# imagePullSecrets:
+#   - name: ghcr-pull
+
+tls:
+  certManager:
+    enabled: true
+    issuerRef:
+      name: provider-ca
+      kind: Issuer
+      group: cert-manager.io
+
+auth:
+  # Inbound Janitor identity. This is separate from Compute workload identity.
+  audience: nvsentinel-csp-provider
+  serviceAccount: system:serviceaccount:nvsentinel:janitor
+
+# For an existing certificate instead, replace tls above with:
+# tls:
+#   existingSecret: nvsentinel-provider-mistral-tls
+#   certManager:
+#     enabled: false

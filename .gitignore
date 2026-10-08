@@ -1,0 +1,11 @@
+/bin/
+/.venv/
+/dist/
+*.tgz
+*.prof
+coverage.out
+.DS_Store
+values.local.yaml
+*.key
+*.pem
+.env

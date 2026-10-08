@@ -1,0 +1,22 @@
+{{- if .Values.tls.certManager.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "provider.name" . }}
+  labels:
+    {{- include "provider.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "provider.tlsSecret" . }}
+  duration: {{ .Values.tls.certManager.duration }}
+  renewBefore: {{ .Values.tls.certManager.renewBefore }}
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
+  usages: [server auth, digital signature]
+  dnsNames:
+    - {{ include "provider.name" . }}.{{ .Release.Namespace }}.svc
+    - {{ include "provider.name" . }}.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}
+  issuerRef:
+    {{- toYaml .Values.tls.certManager.issuerRef | nindent 4 }}
+{{- end }}

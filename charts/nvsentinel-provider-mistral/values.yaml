@@ -1,0 +1,76 @@
+replicaCount: 1
+fullnameOverride: ""
+clusterDomain: cluster.local
+
+image:
+  repository: ghcr.io/mistralai/nvsentinel-provider-mistral
+  # Defaults to the chart appVersion. Prefer a digest for production.
+  tag: ""
+  digest: ""
+  pullPolicy: IfNotPresent
+imagePullSecrets: []
+
+compute:
+  # HTTPS API base URL, without the /v1/projects/... path.
+  endpoint: ""
+  project: ""
+  region: ""
+  auth:
+    # apiKey keeps the existing Secret-based configuration.
+    # workloadIdentity exchanges a projected Kubernetes token through a Compute OIDC trust.
+    mode: apiKey
+    workloadIdentity:
+      # Copy the public clientId and tokenUrl returned by your Compute OIDC trust.
+      clientId: ""
+      tokenUrl: ""
+      # Must match the trust's audience. For example: mistral-compute.
+      audience: ""
+      expirationSeconds: 3600
+  # Required only for apiKey mode; keep name empty for workloadIdentity.
+  # Existing Secret in the release namespace; never put the token in values.
+  tokenSecret:
+    name: ""
+    key: token
+
+# Administrator-managed mapping; requires Node authorizer and NodeRestriction.
+# Overrides must also use a protected node-restriction.kubernetes.io namespace.
+nodeNameLabel: nvsentinel.mistral.ai.node-restriction.kubernetes.io/node-name
+timeouts:
+  httpSeconds: 30
+  # null selects 45 seconds for apiKey or 75 seconds for workloadIdentity.
+  # An override must exceed httpSeconds (apiKey) or twice httpSeconds (workloadIdentity).
+  # Pod termination grace is at least the selected RPC timeout + 10 seconds.
+  rpcSeconds: null
+
+auth:
+  audience: nvsentinel-csp-provider
+  # Exact Kubernetes identity allowed to invoke the provider.
+  serviceAccount: system:serviceaccount:nvsentinel:janitor
+
+tls:
+  # Use either an existing kubernetes.io/tls Secret or cert-manager.
+  existingSecret: ""
+  certManager:
+    enabled: true
+    issuerRef:
+      # Use an existing CA-backed issuer trusted by Janitor.
+      name: ""
+      kind: ClusterIssuer
+      group: cert-manager.io
+    duration: 2160h
+    renewBefore: 720h
+
+serviceAccount:
+  # Created by this chart. Empty uses the provider's resource name.
+  # Keep this name and the release namespace stable after creating the OIDC trust.
+  name: ""
+  annotations: {}
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+nodeSelector: {}
+tolerations: []
+affinity: {}

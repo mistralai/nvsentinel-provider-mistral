@@ -1,0 +1,39 @@
+# Optional dedicated CA, scoped to nvsentinel. Apply only with cert-manager installed.
+# Prefer an existing organizational CA where available. No private key is stored here.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: provider-ca-bootstrap
+  namespace: nvsentinel
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: provider-root-ca
+  namespace: nvsentinel
+spec:
+  isCA: true
+  commonName: nvsentinel-provider-ca
+  secretName: provider-root-ca
+  duration: 87600h
+  renewBefore: 8760h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Never
+  usages: [cert sign, crl sign]
+  issuerRef:
+    name: provider-ca-bootstrap
+    kind: Issuer
+    group: cert-manager.io
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: provider-ca
+  namespace: nvsentinel
+spec:
+  ca:
+    secretName: provider-root-ca
