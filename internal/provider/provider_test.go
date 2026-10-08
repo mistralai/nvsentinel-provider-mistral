@@ -23,7 +23,57 @@ import (
 
 type rebootFunc func(context.Context, string) error
 
+func (f rebootFunc) Prepare(context.Context) error                   { return nil }
 func (f rebootFunc) Reboot(ctx context.Context, target string) error { return f(ctx, target) }
+
+type preparingRebooter struct {
+	prepareErr   error
+	prepareCalls int
+	rebootCalls  int
+}
+
+func (r *preparingRebooter) Prepare(context.Context) error {
+	r.prepareCalls++
+	return r.prepareErr
+}
+
+func (r *preparingRebooter) Reboot(context.Context, string) error {
+	r.rebootCalls++
+	return nil
+}
+
+func TestCredentialFailureBeforeReservationCanRetry(t *testing.T) {
+	f := newFixture(t)
+	r := &preparingRebooter{prepareErr: errors.New("synthetic secret must not escape")}
+	p, err := New(Config{Namespace: "provider-system", Scope: "test-compute-scope"}, f.kube, f.dynamic, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = p.SendRebootSignal(context.Background(), &cspv1alpha1.SendRebootSignalRequest{NodeName: f.node.Name, CrName: f.cr.GetName()})
+	if status.Code(err) != codes.Unavailable || strings.Contains(err.Error(), "synthetic secret") {
+		t.Fatalf("unexpected credential error: %v", err)
+	}
+	if r.rebootCalls != 0 {
+		t.Fatal("credential failure submitted a reboot")
+	}
+	_, err = f.kube.CoreV1().ConfigMaps("provider-system").Get(context.Background(), journalName(f.node.UID), metav1.GetOptions{})
+	if !apierrors.IsNotFound(err) {
+		t.Fatalf("credential failure created a journal: %v", err)
+	}
+	r.prepareErr = nil
+	ref := f.send(p, f.cr.GetName())
+	if r.rebootCalls != 1 || r.prepareCalls != 2 {
+		t.Fatalf("retry: reboots=%d preparations=%d", r.rebootCalls, r.prepareCalls)
+	}
+	r.prepareErr = errors.New("identity unavailable again")
+	if replay := f.send(p, f.cr.GetName()); replay != ref || r.prepareCalls != 2 || r.rebootCalls != 1 {
+		t.Fatal("replaying a reservation depended on credentials or resubmitted a reboot")
+	}
+	f.updateNode(func(node *corev1.Node) { node.Status.NodeInfo.BootID = "boot-b" })
+	if ready, err := f.ready(p, ref); err != nil || !ready {
+		t.Fatalf("credential outage prevented observing completion: ready=%v err=%v", ready, err)
+	}
+}
 
 type fixture struct {
 	t       *testing.T

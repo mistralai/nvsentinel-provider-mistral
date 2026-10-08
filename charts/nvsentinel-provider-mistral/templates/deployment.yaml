@@ -15,9 +15,9 @@ spec:
       labels:
         {{- include "provider.selectorLabels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "provider.name" . }}
+      serviceAccountName: {{ include "provider.serviceAccountName" . }}
       automountServiceAccountToken: false
-      terminationGracePeriodSeconds: {{ max 60 (add 10 (.Values.timeouts.rpcSeconds | int)) }}
+      terminationGracePeriodSeconds: {{ max 60 (add 10 (include "provider.rpcTimeoutSeconds" . | int)) }}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -62,14 +62,25 @@ spec:
               value: {{ .Values.compute.project | quote }}
             - name: COMPUTE_REGION
               value: {{ .Values.compute.region | quote }}
+            - name: COMPUTE_AUTH_MODE
+              value: {{ .Values.compute.auth.mode | quote }}
+            {{- if eq .Values.compute.auth.mode "apiKey" }}
             - name: COMPUTE_TOKEN_FILE
               value: /var/run/secrets/compute/token
+            {{- else }}
+            - name: COMPUTE_OIDC_CLIENT_ID
+              value: {{ .Values.compute.auth.workloadIdentity.clientId | quote }}
+            - name: COMPUTE_OIDC_TOKEN_URL
+              value: {{ .Values.compute.auth.workloadIdentity.tokenUrl | quote }}
+            - name: COMPUTE_OIDC_SUBJECT_TOKEN_FILE
+              value: /var/run/secrets/compute-identity/token
+            {{- end }}
             - name: NODE_NAME_LABEL
               value: {{ .Values.nodeNameLabel | quote }}
             - name: HTTP_TIMEOUT
               value: {{ printf "%ds" (.Values.timeouts.httpSeconds | int) | quote }}
             - name: RPC_TIMEOUT
-              value: {{ printf "%ds" (.Values.timeouts.rpcSeconds | int) | quote }}
+              value: {{ printf "%ds" (include "provider.rpcTimeoutSeconds" . | int) | quote }}
             - name: TLS_CERT_FILE
               value: /var/run/secrets/provider-tls/tls.crt
             - name: TLS_KEY_FILE
@@ -98,9 +109,15 @@ spec:
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           volumeMounts:
+            {{- if eq .Values.compute.auth.mode "apiKey" }}
             - name: compute-token
               mountPath: /var/run/secrets/compute
               readOnly: true
+            {{- else }}
+            - name: compute-identity
+              mountPath: /var/run/secrets/compute-identity
+              readOnly: true
+            {{- end }}
             - name: provider-tls
               mountPath: /var/run/secrets/provider-tls
               readOnly: true
@@ -108,6 +125,7 @@ spec:
               mountPath: /var/run/secrets/kubernetes.io/serviceaccount
               readOnly: true
       volumes:
+        {{- if eq .Values.compute.auth.mode "apiKey" }}
         - name: compute-token
           secret:
             secretName: {{ .Values.compute.tokenSecret.name }}
@@ -115,6 +133,16 @@ spec:
             items:
               - key: {{ .Values.compute.tokenSecret.key }}
                 path: token
+        {{- else }}
+        - name: compute-identity
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  audience: {{ .Values.compute.auth.workloadIdentity.audience | quote }}
+                  expirationSeconds: {{ .Values.compute.auth.workloadIdentity.expirationSeconds }}
+                  path: token
+        {{- end }}
         - name: provider-tls
           secret:
             secretName: {{ include "provider.tlsSecret" . }}

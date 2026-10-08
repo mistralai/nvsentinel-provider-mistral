@@ -6,20 +6,78 @@
     "clusterDomain": { "type": "string", "minLength": 1 },
     "compute": {
       "type": "object",
-      "required": ["endpoint", "project", "region", "tokenSecret"],
+      "required": ["endpoint", "project", "region", "auth", "tokenSecret"],
       "properties": {
         "endpoint": { "type": "string", "pattern": "^https://[^/]+.*$" },
         "project": { "type": "string", "minLength": 2, "maxLength": 19, "pattern": "^[a-z]([a-z0-9]|-[a-z0-9])*$" },
         "region": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "workloadIdentity"],
+          "properties": {
+            "mode": { "enum": ["apiKey", "workloadIdentity"] },
+            "workloadIdentity": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["clientId", "tokenUrl", "audience", "expirationSeconds"],
+              "properties": {
+                "clientId": { "type": "string" },
+                "tokenUrl": { "type": "string" },
+                "audience": { "type": "string" },
+                "expirationSeconds": { "type": "integer", "minimum": 600, "maximum": 3600 }
+              }
+            }
+          }
+        },
         "tokenSecret": {
           "type": "object",
+          "additionalProperties": false,
           "required": ["name", "key"],
           "properties": {
-            "name": { "type": "string", "minLength": 1 },
+            "name": { "type": "string" },
             "key": { "type": "string", "minLength": 1 }
           }
         }
-      }
+      },
+      "oneOf": [
+        {
+          "description": "API key authentication requires a Secret and rejects unused OIDC settings.",
+          "properties": {
+            "auth": {
+              "properties": {
+                "mode": { "const": "apiKey" },
+                "workloadIdentity": {
+                  "properties": {
+                    "clientId": { "const": "" },
+                    "tokenUrl": { "const": "" },
+                    "audience": { "const": "" }
+                  }
+                }
+              }
+            },
+            "tokenSecret": { "properties": { "name": { "minLength": 1 } } }
+          }
+        },
+        {
+          "description": "Workload identity requires explicit trust metadata and does not accept an API key Secret.",
+          "properties": {
+            "auth": {
+              "properties": {
+                "mode": { "const": "workloadIdentity" },
+                "workloadIdentity": {
+                  "properties": {
+                    "clientId": { "minLength": 1, "pattern": "^\\S+$" },
+                    "tokenUrl": { "pattern": "^https://[^/?#@\\s]+(/[^?#\\s]*)?$" },
+                    "audience": { "minLength": 1, "pattern": "^\\S+$" }
+                  }
+                }
+              }
+            },
+            "tokenSecret": { "properties": { "name": { "const": "" } } }
+          }
+        }
+      ]
     },
     "nodeNameLabel": {
       "type": "string",
@@ -30,7 +88,7 @@
       "type": "object",
       "properties": {
         "httpSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
-        "rpcSeconds": { "type": "integer", "minimum": 2, "maximum": 300 }
+        "rpcSeconds": { "type": ["integer", "null"], "minimum": 2, "maximum": 300 }
       }
     },
     "image": {
@@ -47,6 +105,17 @@
       "properties": {
         "audience": { "type": "string", "minLength": 1 },
         "serviceAccount": { "type": "string", "pattern": "^system:serviceaccount:[^:]+:[^:]+$" }
+      }
+    },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 253,
+          "pattern": "^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+        },
+        "annotations": { "type": "object", "additionalProperties": { "type": "string" } }
       }
     },
     "tls": {

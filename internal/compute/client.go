@@ -12,7 +12,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -27,7 +26,9 @@ type Config struct {
 	Endpoint  string
 	Project   string
 	Region    string
+	AuthMode  string
 	TokenFile string
+	OIDC      OIDCConfig
 	Timeout   time.Duration
 }
 
@@ -35,6 +36,7 @@ type Client struct {
 	config Config
 	base   *url.URL
 	http   *http.Client
+	tokens credentialSource
 }
 
 // APIError intentionally excludes response bodies: they may contain sensitive data.
@@ -56,9 +58,8 @@ func (e *APIError) Error() string {
 // New accepts a custom HTTP client for testing or a custom trust store. Redirects
 // are always disabled, and the client is copied before setting its bounds.
 func New(config Config, client *http.Client) (*Client, error) {
-	base, err := url.Parse(config.Endpoint)
-	if err != nil || base == nil || base.Scheme != "https" || base.Hostname() == "" ||
-		base.User != nil || base.RawQuery != "" || base.Fragment != "" {
+	base, err := secureURL(config.Endpoint)
+	if err != nil {
 		return nil, errors.New("Compute endpoint must be an HTTPS URL without credentials, query, or fragment")
 	}
 	if len(config.Project) < 2 || len(config.Project) > 19 || !projectPattern.MatchString(config.Project) {
@@ -67,10 +68,10 @@ func New(config Config, client *http.Client) (*Client, error) {
 	if !namePattern.MatchString(config.Region) || strings.Contains(config.Region, ".") {
 		return nil, errors.New("Compute region must be a nonempty region name")
 	}
-	if config.TokenFile == "" || config.Timeout <= 0 {
-		return nil, errors.New("Compute token file and positive HTTP timeout are required")
+	if config.Timeout <= 0 {
+		return nil, errors.New("a positive Compute HTTP timeout is required")
 	}
-	if _, err := readCredential(config.TokenFile); err != nil {
+	if err := config.ValidateAuth(); err != nil {
 		return nil, err
 	}
 	if client == nil {
@@ -79,17 +80,29 @@ func New(config Config, client *http.Client) (*Client, error) {
 	bounded := *client
 	bounded.Timeout = config.Timeout
 	bounded.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &Client{config: config, base: base, http: &bounded}, nil
+	tokens, err := newCredentialSource(config, &bounded)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{config: config, base: base, http: &bounded, tokens: tokens}, nil
 }
 
-// Reboot sends exactly one request. A transport error can mean the server already
-// accepted it; the caller must journal the attempt before calling this method.
+// Prepare resolves credentials before the caller reserves a destructive action.
+// An unavailable token exchange can then fail without consuming that reservation.
+// This method never calls the reboot endpoint.
+func (c *Client) Prepare(ctx context.Context) error {
+	_, err := c.tokens.bearer(ctx)
+	return err
+}
+
+// Reboot sends at most one request to the reboot endpoint. A transport error can
+// mean the server already accepted it; the caller must journal the attempt first.
+// Authentication failure never triggers an automatic retry of the reboot POST.
 func (c *Client) Reboot(ctx context.Context, nodeName string) error {
 	if len(nodeName) > 253 || !namePattern.MatchString(nodeName) {
 		return errors.New("invalid Compute node name")
 	}
-	// Read every time so a mounted Secret can rotate without a process restart.
-	token, err := readCredential(c.config.TokenFile)
+	token, err := c.tokens.bearer(ctx)
 	if err != nil {
 		return err
 	}
@@ -117,16 +130,4 @@ func (c *Client) Reboot(ctx context.Context, nodeName string) error {
 		return &APIError{StatusCode: response.StatusCode}
 	}
 	return nil
-}
-
-func readCredential(path string) (string, error) {
-	credential, err := os.ReadFile(path)
-	if err != nil {
-		return "", errors.New("cannot read Compute credential file")
-	}
-	token := strings.TrimSpace(string(credential))
-	if token == "" || strings.ContainsAny(token, "\r\n\t ") {
-		return "", errors.New("Compute credential is empty or contains whitespace")
-	}
-	return token, nil
 }

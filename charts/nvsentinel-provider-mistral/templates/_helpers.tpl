@@ -19,8 +19,27 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- default (printf "%s-tls" (include "provider.name" .)) .Values.tls.existingSecret -}}
 {{- end -}}
 
+{{- define "provider.serviceAccountName" -}}
+{{- default (include "provider.name" .) .Values.serviceAccount.name -}}
+{{- end -}}
+
+{{- define "provider.rpcTimeoutSeconds" -}}
+{{- if .Values.timeouts.rpcSeconds -}}
+{{- .Values.timeouts.rpcSeconds -}}
+{{- else if eq .Values.compute.auth.mode "workloadIdentity" -}}
+75
+{{- else -}}
+45
+{{- end -}}
+{{- end -}}
+
 {{- define "provider.validate" -}}
-{{- if le (.Values.timeouts.rpcSeconds | int) (.Values.timeouts.httpSeconds | int) -}}
+{{- $rpcSeconds := include "provider.rpcTimeoutSeconds" . | int -}}
+{{- if eq .Values.compute.auth.mode "workloadIdentity" -}}
+  {{- if le $rpcSeconds (mul 2 (.Values.timeouts.httpSeconds | int)) -}}
+    {{- fail "timeouts.rpcSeconds must exceed twice timeouts.httpSeconds for workloadIdentity" -}}
+  {{- end -}}
+{{- else if le $rpcSeconds (.Values.timeouts.httpSeconds | int) -}}
   {{- fail "timeouts.rpcSeconds must exceed timeouts.httpSeconds" -}}
 {{- end -}}
 {{- if .Values.tls.certManager.enabled -}}

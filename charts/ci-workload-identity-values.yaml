@@ -1,0 +1,15 @@
+# Synthetic configuration for chart tests. Contains no credentials or live endpoints.
+compute:
+  endpoint: https://compute.example.invalid
+  project: example
+  region: example-region
+  auth:
+    mode: workloadIdentity
+    workloadIdentity:
+      clientId: synthetic-trust-client
+      tokenUrl: https://compute.example.invalid/oauth2/token
+      audience: mistral-compute
+tls:
+  certManager:
+    issuerRef:
+      name: synthetic-ca

@@ -15,6 +15,18 @@ compute:
   endpoint: ""
   project: ""
   region: ""
+  auth:
+    # apiKey keeps the existing Secret-based configuration.
+    # workloadIdentity exchanges a projected Kubernetes token through a Compute OIDC trust.
+    mode: apiKey
+    workloadIdentity:
+      # Copy the public clientId and tokenUrl returned by your Compute OIDC trust.
+      clientId: ""
+      tokenUrl: ""
+      # Must match the trust's audience. For example: mistral-compute.
+      audience: ""
+      expirationSeconds: 3600
+  # Required only for apiKey mode; keep name empty for workloadIdentity.
   # Existing Secret in the release namespace; never put the token in values.
   tokenSecret:
     name: ""
@@ -25,8 +37,10 @@ compute:
 nodeNameLabel: nvsentinel.mistral.ai.node-restriction.kubernetes.io/node-name
 timeouts:
   httpSeconds: 30
-  # Must exceed httpSeconds. Pod termination grace is at least rpcSeconds + 10.
-  rpcSeconds: 45
+  # null selects 45 seconds for apiKey or 75 seconds for workloadIdentity.
+  # An override must exceed httpSeconds (apiKey) or twice httpSeconds (workloadIdentity).
+  # Pod termination grace is at least the selected RPC timeout + 10 seconds.
+  rpcSeconds: null
 
 auth:
   audience: nvsentinel-csp-provider
@@ -47,6 +61,9 @@ tls:
     renewBefore: 720h
 
 serviceAccount:
+  # Created by this chart. Empty uses the provider's resource name.
+  # Keep this name and the release namespace stable after creating the OIDC trust.
+  name: ""
   annotations: {}
 resources:
   requests:

@@ -38,8 +38,10 @@ var rebootNodes = schema.GroupVersionResource{
 }
 
 // Rebooter accepts a provider machine name explicitly mapped by a Node label.
-// Implementations must perform at most one HTTP request and must not retry.
+// Prepare resolves credentials without rebooting. Reboot must perform at most
+// one reboot HTTP request and must never retry that request.
 type Rebooter interface {
+	Prepare(context.Context) error
 	Reboot(context.Context, string) error
 }
 
@@ -139,6 +141,15 @@ func (p *Provider) SendRebootSignal(ctx context.Context, req *cspv1alpha1.SendRe
 				return status.Error(codes.FailedPrecondition, "the previous reboot has not reached a new Ready boot")
 			}
 			current.Phase = phaseComplete
+		}
+		// Credential exchange is safe to retry before reserving a destructive
+		// operation. Replays bypass it so an identity outage cannot hide an
+		// existing reservation or prevent observation of reboot completion.
+		if err := p.rebooter.Prepare(ctx); err != nil {
+			return status.Error(codes.Unavailable, "Compute credentials could not be prepared; this call did not reserve a reboot")
+		}
+		if err := ctx.Err(); err != nil {
+			return err
 		}
 		candidate, err := newReference(node.UID)
 		if err != nil {

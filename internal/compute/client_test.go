@@ -45,7 +45,7 @@ func TestRebootContractAndCredentialRotation(t *testing.T) {
 	}))
 	defer server.Close()
 	path := tokenFile(t, "first\n")
-	client, err := New(Config{server.URL + "/prefix", "default", "region-1", path, time.Second}, server.Client())
+	client, err := New(Config{Endpoint: server.URL + "/prefix", Project: "default", Region: "region-1", TokenFile: path, Timeout: time.Second}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,7 +73,7 @@ func TestRedirectAndErrorBodiesAreNotFollowedOrExposed(t *testing.T) {
 		_, _ = w.Write([]byte("sensitive response marker"))
 	}))
 	defer server.Close()
-	client, err := New(Config{server.URL, "default", "region-1", tokenFile(t, "secret"), time.Second}, server.Client())
+	client, err := New(Config{Endpoint: server.URL, Project: "default", Region: "region-1", TokenFile: tokenFile(t, "secret"), Timeout: time.Second}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestTimeoutNeverRetries(t *testing.T) {
 		<-r.Context().Done()
 	}))
 	defer server.Close()
-	client, err := New(Config{server.URL, "default", "region-1", tokenFile(t, "secret"), 50 * time.Millisecond}, server.Client())
+	client, err := New(Config{Endpoint: server.URL, Project: "default", Region: "region-1", TokenFile: tokenFile(t, "secret"), Timeout: 50 * time.Millisecond}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +110,7 @@ func TestInvalidInputsNeverReachAPI(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }))
 	defer server.Close()
-	client, err := New(Config{server.URL, "default", "region-1", tokenFile(t, "secret"), time.Second}, server.Client())
+	client, err := New(Config{Endpoint: server.URL, Project: "default", Region: "region-1", TokenFile: tokenFile(t, "secret"), Timeout: time.Second}, server.Client())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,7 +123,7 @@ func TestInvalidInputsNeverReachAPI(t *testing.T) {
 		t.Fatal("invalid input reached the API")
 	}
 	for _, endpoint := range []string{"http://example.com", "https://user:pass@example.com", "https://example.com?token=x"} {
-		if _, err := New(Config{endpoint, "default", "region-1", "file", time.Second}, nil); err == nil {
+		if _, err := New(Config{Endpoint: endpoint, Project: "default", Region: "region-1", TokenFile: "file", Timeout: time.Second}, nil); err == nil {
 			t.Errorf("accepted endpoint %s", endpoint)
 		}
 	}

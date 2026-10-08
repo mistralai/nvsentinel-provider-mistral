@@ -42,7 +42,12 @@ func FromEnv(get func(string) string) (Config, error) {
 		ServiceAccount: value("AUTH_SERVICE_ACCOUNT", "system:serviceaccount:nvsentinel:janitor"),
 		Compute: compute.Config{
 			Endpoint: get("COMPUTE_ENDPOINT"), Project: get("COMPUTE_PROJECT"),
-			Region: get("COMPUTE_REGION"), TokenFile: get("COMPUTE_TOKEN_FILE"),
+			Region: get("COMPUTE_REGION"), AuthMode: value("COMPUTE_AUTH_MODE", compute.AuthModeAPIKey),
+			TokenFile: get("COMPUTE_TOKEN_FILE"),
+			OIDC: compute.OIDCConfig{
+				TokenURL: get("COMPUTE_OIDC_TOKEN_URL"), ClientID: get("COMPUTE_OIDC_CLIENT_ID"),
+				SubjectTokenFile: get("COMPUTE_OIDC_SUBJECT_TOKEN_FILE"),
+			},
 		},
 	}
 	if c.Namespace == "" || c.TLSCertFile == "" || c.TLSKeyFile == "" {
@@ -52,14 +57,24 @@ func FromEnv(get func(string) string) (Config, error) {
 	if len(parts) != 4 || parts[0] != "system" || parts[1] != "serviceaccount" || parts[2] == "" || parts[3] == "" {
 		return Config{}, errors.New("AUTH_SERVICE_ACCOUNT must be an exact Kubernetes ServiceAccount subject")
 	}
+	if err := c.Compute.ValidateAuth(); err != nil {
+		return Config{}, err
+	}
 	var err error
 	c.Compute.Timeout, err = duration(value("HTTP_TIMEOUT", "30s"), "HTTP_TIMEOUT")
 	if err != nil {
 		return Config{}, err
 	}
-	c.RPCTimeout, err = duration(value("RPC_TIMEOUT", "45s"), "RPC_TIMEOUT")
+	defaultRPCTimeout := "45s"
+	if c.Compute.AuthMode == compute.AuthModeWorkloadIdentity {
+		defaultRPCTimeout = "75s"
+	}
+	c.RPCTimeout, err = duration(value("RPC_TIMEOUT", defaultRPCTimeout), "RPC_TIMEOUT")
 	if err != nil {
 		return Config{}, err
+	}
+	if c.Compute.AuthMode == compute.AuthModeWorkloadIdentity && c.RPCTimeout <= 2*c.Compute.Timeout {
+		return Config{}, errors.New("RPC_TIMEOUT must exceed twice HTTP_TIMEOUT for workloadIdentity authentication and durable bookkeeping")
 	}
 	if c.RPCTimeout <= c.Compute.Timeout {
 		return Config{}, errors.New("RPC_TIMEOUT must exceed HTTP_TIMEOUT to allow durable bookkeeping")

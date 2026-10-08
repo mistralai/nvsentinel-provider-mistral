@@ -1,0 +1,37 @@
+# API-key alternative. Complete setup: docs/installation.md.
+compute:
+  endpoint: https://compute.example.invalid
+  project: example
+  region: example-region
+  auth:
+    mode: apiKey
+    workloadIdentity:
+      clientId: ""
+      tokenUrl: ""
+      audience: ""
+  tokenSecret:
+    name: compute-api-token
+    key: token
+
+serviceAccount:
+  name: nvsentinel-provider-mistral
+
+imagePullSecrets:
+  - name: ghcr-pull
+
+tls:
+  certManager:
+    enabled: true
+    issuerRef:
+      name: provider-ca
+      kind: Issuer
+      group: cert-manager.io
+
+auth:
+  audience: nvsentinel-csp-provider
+  serviceAccount: system:serviceaccount:nvsentinel:janitor
+
+timeouts:
+  httpSeconds: 30
+  # Selects 45 seconds in apiKey mode.
+  rpcSeconds: null

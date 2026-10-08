@@ -109,7 +109,7 @@ func run(ctx context.Context) error {
 	go func() { failures <- server.Serve(listener) }()
 	go func() { failures <- health.Serve(healthListener) }()
 	ready.Store(true)
-	slog.Info("provider started", "version", version, "grpc", cfg.ListenAddress, "namespace", cfg.Namespace)
+	slog.Info("provider started", "version", version, "grpc", cfg.ListenAddress, "namespace", cfg.Namespace, "compute_auth_mode", cfg.Compute.AuthMode)
 	select {
 	case <-ctx.Done():
 	case err = <-failures:
