@@ -24,8 +24,9 @@ timeouts:
   # Selects 75 seconds in workloadIdentity mode.
   rpcSeconds: null
 
-imagePullSecrets:
-  - name: ghcr-pull
+# If the image requires registry authentication:
+# imagePullSecrets:
+#   - name: ghcr-pull
 
 tls:
   certManager:

@@ -16,8 +16,9 @@ compute:
 serviceAccount:
   name: nvsentinel-provider-mistral
 
-imagePullSecrets:
-  - name: ghcr-pull
+# If the image requires registry authentication:
+# imagePullSecrets:
+#   - name: ghcr-pull
 
 tls:
   certManager:

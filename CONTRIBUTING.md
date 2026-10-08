@@ -1,6 +1,6 @@
 # Contributing
 
-Changes are welcome through pull requests. Keep the provider independent of private Compute source and preserve NVSentinel's existing maintenance workflow.
+Contributions are welcome through pull requests. Keep changes focused on the provider integration and preserve NVSentinel's maintenance workflow.
 
 ## Local checks
 
@@ -25,10 +25,10 @@ helm package charts/nvsentinel-provider-mistral --destination dist
 
 ## Changes to authentication or reboot handling
 
-Add tests for meaningful failure cases, including token expiry/rotation, rejected exchanges, interrupted requests, and concurrent callers. Use synthetic tokens and local HTTP servers. Do not add real credentials, internal infrastructure names, private API source, or tests that reboot a live node.
+Cover meaningful failure cases, including token expiry and rotation, rejected exchanges, interrupted requests, and concurrent callers. Use synthetic credentials and local servers; tests must not reboot live nodes.
 
 Preserve the reservation-before-submission guarantee. Credential preparation may run before a new reservation; a reboot request must never be retried automatically after submission is possible. Existing reservations must remain usable during an identity-provider outage.
 
 Update the installation/configuration examples when values or permissions change. Keep the chart, runtime validation, and documentation consistent. Explain the user-visible behavior and relevant validation in the PR description.
 
-See [CI and releases](docs/releasing.md) for publishing. Repository and package visibility remain private until a separate public-launch decision.
+See [CI and releases](docs/releasing.md) for package publishing and release steps.

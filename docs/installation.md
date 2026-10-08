@@ -13,7 +13,7 @@ You need:
 - A Kubernetes ServiceAccount issuer whose discovery document and JWKS are reachable from Compute over **public HTTPS**, with publicly resolvable addresses and valid certificates. Projected tokens must be unexpired, signed with **RS256**, and include a signing-key `kid`.
 - A Compute project/region containing the target bare-metal hosts and the [bootstrap permissions](permissions.md#bootstrap-permissions) to create the role, account, and trust.
 - A CA-issued provider certificate trusted by Janitor. Use an existing cert-manager issuer or an existing TLS Secret.
-- Helm 3.18.6+, `kubectl`, `curl`, and `jq` on the installer machine; GHCR access while the packages are private.
+- Helm 3.18.6+, `kubectl`, `curl`, and `jq` on the installer machine.
 
 Inspect the cluster's discovery metadata:
 
@@ -51,7 +51,7 @@ Follow [Create the Compute role and account](permissions.md#create-the-compute-r
 
 Keep the returned `oidc-trust.json`; its `clientId` and `tokenUrl` go into the provider configuration. No client secret is issued or needed. Reuse the same namespace and Kubernetes ServiceAccount name across upgrades, or update the trust deliberately.
 
-## 3. Prepare the namespace, registry, and TLS
+## 3. Prepare the namespace and TLS
 
 Create the namespace if it does not already exist:
 
@@ -59,7 +59,10 @@ Create the namespace if it does not already exist:
 kubectl create namespace nvsentinel --dry-run=client -o yaml | kubectl apply -f -
 ```
 
-For private packages, the installer needs a GHCR credential with package read access. Authenticate Helm, then supply a separate image-pull Secret for the cluster:
+<details>
+<summary>Registry authentication for restricted packages</summary>
+
+If the package requires authentication, use a GHCR credential with package read access for Helm and a separate image-pull Secret for the cluster:
 
 ```sh
 printf '%s' "$GHCR_READ_TOKEN" | helm registry login ghcr.io \
@@ -70,7 +73,9 @@ kubectl -n nvsentinel create secret generic ghcr-pull \
   --from-file=.dockerconfigjson=/secure/ghcr-config.json
 ```
 
-Populate these credentials using your secret manager. The Docker configuration must contain credentials for an identity allowed to read this repository's image. Helm login does not authenticate Kubernetes image pulls. Registry credentials are separate from Compute workload identity.
+Populate these credentials using your secret manager. The Docker configuration must contain credentials for an identity allowed to read the image. Set `imagePullSecrets: [{name: ghcr-pull}]` in your values. Helm login does not authenticate Kubernetes image pulls; registry credentials are separate from Compute workload identity.
+
+</details>
 
 Use your existing organizational CA-backed issuer where possible. If you need a dedicated CA and have cert-manager installed, the [optional CA bootstrap](provider-ca.yaml) creates a CA and issuer in `nvsentinel`:
 
@@ -128,17 +133,7 @@ helm upgrade --install nvsentinel-provider-mistral \
   --values values.local.yaml --wait
 ```
 
-**Before the first release:** after the implementation merges and the main-branch image finishes publishing, install from a checkout of that commit using the local chart and `edge` image:
-
-```sh
-helm upgrade --install nvsentinel-provider-mistral \
-  ./charts/nvsentinel-provider-mistral \
-  --namespace nvsentinel \
-  --values values.local.yaml \
-  --set image.tag=edge --wait
-```
-
-If the implementation is still awaiting merge, an `edge` image may not exist yet. For production, select an immutable image digest with `image.digest`. See [releases](releasing.md).
+For production, select an immutable image digest with `image.digest`.
 
 Check the deployment:
 
