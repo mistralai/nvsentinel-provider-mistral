@@ -1,0 +1,26 @@
+# Merge into the existing NVSentinel v1.26.0 release values.
+# This example intentionally disables termination because the new provider only reboots.
+janitor:
+  config:
+    controllers:
+      rebootNode:
+        enabled: true
+        cspProviderHost: nvsentinel-provider-mistral.nvsentinel.svc.cluster.local:50051
+      terminateNode:
+        enabled: false
+    cspProvider:
+      tls:
+        enabled: true
+        insecure: false
+        # CA-issued cert-manager Secret must include ca.crt, in Janitor's namespace.
+        # A separate Secret containing a shared CA bundle is also supported.
+        caSecretName: nvsentinel-provider-mistral-tls
+      auth:
+        enabled: true
+        audience: nvsentinel-csp-provider
+        expirationSeconds: 3600
+
+fault-remediation:
+  maintenance:
+    actions:
+      REPLACE_VM: null

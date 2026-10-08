@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "replicaCount": { "type": "integer", "minimum": 1 },
+    "clusterDomain": { "type": "string", "minLength": 1 },
+    "compute": {
+      "type": "object",
+      "required": ["endpoint", "project", "region", "tokenSecret"],
+      "properties": {
+        "endpoint": { "type": "string", "pattern": "^https://[^/]+.*$" },
+        "project": { "type": "string", "minLength": 2, "maxLength": 19, "pattern": "^[a-z]([a-z0-9]|-[a-z0-9])*$" },
+        "region": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
+        "tokenSecret": {
+          "type": "object",
+          "required": ["name", "key"],
+          "properties": {
+            "name": { "type": "string", "minLength": 1 },
+            "key": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "nodeNameLabel": {
+      "type": "string",
+      "maxLength": 317,
+      "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?\\.)*node-restriction\\.kubernetes\\.io/[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?$"
+    },
+    "timeouts": {
+      "type": "object",
+      "properties": {
+        "httpSeconds": { "type": "integer", "minimum": 1, "maximum": 300 },
+        "rpcSeconds": { "type": "integer", "minimum": 2, "maximum": 300 }
+      }
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": { "type": "string", "minLength": 1 },
+        "tag": { "type": "string" },
+        "digest": { "type": "string", "pattern": "^(sha256:[a-f0-9]{64})?$" },
+        "pullPolicy": { "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "properties": {
+        "audience": { "type": "string", "minLength": 1 },
+        "serviceAccount": { "type": "string", "pattern": "^system:serviceaccount:[^:]+:[^:]+$" }
+      }
+    },
+    "tls": {
+      "type": "object",
+      "properties": {
+        "existingSecret": { "type": "string" },
+        "certManager": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "issuerRef": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "kind": { "enum": ["Issuer", "ClusterIssuer"] },
+                "group": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,29 @@
+# Replace placeholders. This file contains only configuration and Secret references.
+compute:
+  endpoint: https://compute.example.invalid
+  project: example
+  region: example-region
+  tokenSecret:
+    name: compute-api-token
+    key: token
+
+imagePullSecrets:
+  - name: ghcr-pull
+
+tls:
+  certManager:
+    enabled: true
+    issuerRef:
+      name: provider-ca
+      kind: Issuer
+      group: cert-manager.io
+
+auth:
+  audience: nvsentinel-csp-provider
+  serviceAccount: system:serviceaccount:nvsentinel:janitor
+
+# For an existing certificate instead, replace tls above with:
+# tls:
+#   existingSecret: nvsentinel-provider-mistral-tls
+#   certManager:
+#     enabled: false
