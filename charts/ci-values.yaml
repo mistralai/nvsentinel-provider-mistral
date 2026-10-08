@@ -1,0 +1,11 @@
+# Synthetic values used only to render the chart. No credentials or live endpoints.
+compute:
+  endpoint: https://compute.example.invalid
+  project: example
+  region: example-region
+  tokenSecret:
+    name: synthetic-compute-token
+tls:
+  certManager:
+    issuerRef:
+      name: synthetic-ca

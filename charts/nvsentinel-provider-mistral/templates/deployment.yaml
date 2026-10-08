@@ -1,0 +1,184 @@
+{{- include "provider.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "provider.name" . }}
+  labels:
+    {{- include "provider.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "provider.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "provider.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "provider.serviceAccountName" . }}
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: {{ max 60 (add 10 (include "provider.rpcTimeoutSeconds" . | int)) }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        fsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: provider
+          {{- if .Values.image.digest }}
+          image: "{{ .Values.image.repository }}@{{ .Values.image.digest }}"
+          {{- else }}
+          image: "{{ .Values.image.repository }}:{{ default .Chart.AppVersion .Values.image.tag }}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: health
+              containerPort: 8080
+          env:
+            - name: LISTEN_ADDRESS
+              value: ":50051"
+            - name: HEALTH_ADDRESS
+              value: ":8080"
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: COMPUTE_ENDPOINT
+              value: {{ .Values.compute.endpoint | quote }}
+            - name: COMPUTE_PROJECT
+              value: {{ .Values.compute.project | quote }}
+            - name: COMPUTE_REGION
+              value: {{ .Values.compute.region | quote }}
+            - name: COMPUTE_AUTH_MODE
+              value: {{ .Values.compute.auth.mode | quote }}
+            {{- if eq .Values.compute.auth.mode "apiKey" }}
+            - name: COMPUTE_TOKEN_FILE
+              value: /var/run/secrets/compute/token
+            {{- else }}
+            - name: COMPUTE_OIDC_CLIENT_ID
+              value: {{ .Values.compute.auth.workloadIdentity.clientId | quote }}
+            - name: COMPUTE_OIDC_TOKEN_URL
+              value: {{ .Values.compute.auth.workloadIdentity.tokenUrl | quote }}
+            - name: COMPUTE_OIDC_SUBJECT_TOKEN_FILE
+              value: /var/run/secrets/compute-identity/token
+            {{- end }}
+            - name: NODE_NAME_LABEL
+              value: {{ .Values.nodeNameLabel | quote }}
+            - name: HTTP_TIMEOUT
+              value: {{ printf "%ds" (.Values.timeouts.httpSeconds | int) | quote }}
+            - name: RPC_TIMEOUT
+              value: {{ printf "%ds" (include "provider.rpcTimeoutSeconds" . | int) | quote }}
+            - name: TLS_CERT_FILE
+              value: /var/run/secrets/provider-tls/tls.crt
+            - name: TLS_KEY_FILE
+              value: /var/run/secrets/provider-tls/tls.key
+            - name: AUTH_AUDIENCE
+              value: {{ .Values.auth.audience | quote }}
+            - name: AUTH_SERVICE_ACCOUNT
+              value: {{ .Values.auth.serviceAccount | quote }}
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: health
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: health
+            failureThreshold: 30
+            periodSeconds: 2
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if eq .Values.compute.auth.mode "apiKey" }}
+            - name: compute-token
+              mountPath: /var/run/secrets/compute
+              readOnly: true
+            {{- else }}
+            - name: compute-identity
+              mountPath: /var/run/secrets/compute-identity
+              readOnly: true
+            {{- end }}
+            - name: provider-tls
+              mountPath: /var/run/secrets/provider-tls
+              readOnly: true
+            - name: kube-api-access
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+      volumes:
+        {{- if eq .Values.compute.auth.mode "apiKey" }}
+        - name: compute-token
+          secret:
+            secretName: {{ .Values.compute.tokenSecret.name }}
+            defaultMode: 0440
+            items:
+              - key: {{ .Values.compute.tokenSecret.key }}
+                path: token
+        {{- else }}
+        - name: compute-identity
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  audience: {{ .Values.compute.auth.workloadIdentity.audience | quote }}
+                  expirationSeconds: {{ .Values.compute.auth.workloadIdentity.expirationSeconds }}
+                  path: token
+        {{- end }}
+        - name: provider-tls
+          secret:
+            secretName: {{ include "provider.tlsSecret" . }}
+            defaultMode: 0440
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+        - name: kube-api-access
+          projected:
+            defaultMode: 0440
+            sources:
+              - serviceAccountToken:
+                  expirationSeconds: 3600
+                  path: token
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        apiVersion: v1
+                        fieldPath: metadata.namespace
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
