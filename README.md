@@ -29,7 +29,7 @@ Save this as `provider-values.yaml`. Replace the `<...>` values with your Comput
 
 ```yaml
 compute:
-  endpoint: https://<compute-api>
+  endpoint: https://console.mistralcompute.ai/api
   project: <project>
   region: <region>
   auth:
