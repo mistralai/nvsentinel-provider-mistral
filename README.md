@@ -91,6 +91,8 @@ janitor:
 
 The CA Secret must be in Janitor's namespace, with a `ca.crt` that trusts the provider's issuer **and any other providers Janitor uses**. Janitor's chart creates and mounts the authentication token automatically.
 
+The chart allows Janitor traffic by default; for custom pod labels, set `networkPolicy.callerPodSelector.matchLabels`.
+
 Existing `RebootNode` remediation now calls this provider after NVSentinel quarantines and drains the node. This provider supports reboot only; keep other actions routed to their existing providers.
 
 See [Helm values](charts/nvsentinel-provider-mistral/values.yaml) for the remaining chart settings.

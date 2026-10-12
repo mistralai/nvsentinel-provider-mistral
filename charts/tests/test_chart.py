@@ -155,6 +155,60 @@ class ChartTest(unittest.TestCase):
             {"apiGroups": [""], "resources": ["configmaps"], "verbs": ["get", "create", "update"]}
         ])
 
+    def test_network_policy_allows_only_janitor_grpc_ingress(self):
+        objects = render(namespace="provider-system")
+        policy = object_of(objects, "NetworkPolicy")["spec"]
+        deployment = object_of(objects, "Deployment")["spec"]
+        self.assertEqual(policy, {
+            "podSelector": deployment["selector"],
+            "policyTypes": ["Ingress"],
+            "ingress": [{
+                "from": [{
+                    "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "nvsentinel"}},
+                    "podSelector": {"matchLabels": {"app.kubernetes.io/name": "janitor"}},
+                }],
+                "ports": [{"protocol": "TCP", "port": 50051}],
+            }],
+        })
+        self.assertEqual(policy["podSelector"]["matchLabels"], {
+            "app.kubernetes.io/name": "nvsentinel-provider-mistral",
+            "app.kubernetes.io/instance": "test",
+        })
+
+    def test_network_policy_tracks_caller_namespace_and_custom_labels(self):
+        objects = render(
+            "auth.serviceAccount=system:serviceaccount:janitor-system:custom-janitor",
+            r"networkPolicy.callerPodSelector.matchLabels.app\.kubernetes\.io/name=custom-janitor",
+            r"networkPolicy.callerPodSelector.matchLabels.app\.kubernetes\.io/instance=sentinel",
+            "fullnameOverride=reboot-provider", namespace="provider-system",
+        )
+        policy = object_of(objects, "NetworkPolicy")
+        self.assertEqual(policy["metadata"]["name"], "reboot-provider")
+        self.assertEqual(policy["spec"]["ingress"][0]["from"], [{
+            "namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "janitor-system"}},
+            "podSelector": {"matchLabels": {
+                "app.kubernetes.io/name": "custom-janitor",
+                "app.kubernetes.io/instance": "sentinel",
+            }},
+        }])
+
+    def test_network_policy_can_be_managed_separately(self):
+        objects = render("networkPolicy.enabled=false")
+        self.assertFalse(any(obj["kind"] == "NetworkPolicy" for obj in objects))
+
+    def test_network_policy_rejects_invalid_or_unrestricted_selectors(self):
+        for values in [
+            ("networkPolicy.callerPodSelector.matchLabels=null",),
+            (r"networkPolicy.callerPodSelector.matchLabels.app\.kubernetes\.io/name=null",),
+            (r"networkPolicy.callerPodSelector.matchLabels.app\.kubernetes\.io/name=true",),
+            ("networkPolicy.callerPodSelector.matchExpressions[0].key=app",),
+            ("auth.serviceAccount=system:serviceaccount:invalid/namespace:janitor",),
+            ("auth.serviceAccount=system:serviceaccount:Invalid:janitor",),
+            ("auth.serviceAccount=system:serviceaccount:" + "a" * 64 + ":janitor",),
+        ]:
+            with self.subTest(values=values):
+                render(*values, succeeds=False)
+
     def test_certificate_matches_service_and_alternative_tls_secret(self):
         objects = render("clusterDomain=example.internal", "fullnameOverride=reboot-provider")
         cert = object_of(objects, "Certificate")["spec"]

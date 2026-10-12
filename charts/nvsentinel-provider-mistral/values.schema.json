@@ -104,7 +104,27 @@
       "type": "object",
       "properties": {
         "audience": { "type": "string", "minLength": 1 },
-        "serviceAccount": { "type": "string", "pattern": "^system:serviceaccount:[^:]+:[^:]+$" }
+        "serviceAccount": { "type": "string", "pattern": "^system:serviceaccount:[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?:[^:]+$" }
+      }
+    },
+    "networkPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "callerPodSelector"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "callerPodSelector": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["matchLabels"],
+          "properties": {
+            "matchLabels": {
+              "type": "object",
+              "minProperties": 1,
+              "additionalProperties": { "type": "string" }
+            }
+          }
+        }
       }
     },
     "serviceAccount": {
