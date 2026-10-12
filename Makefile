@@ -5,12 +5,13 @@ VERSION ?= dev
 ENVTEST_K8S_VERSION ?= 1.37.0
 SETUP_ENVTEST_VERSION := v0.25.0
 ACTIONLINT_VERSION := v1.7.12
+GOVULNCHECK_VERSION := v1.8.0
 LOCALBIN := $(CURDIR)/bin
 CHART := charts/nvsentinel-provider-mistral
 
-.PHONY: check fmt-check mod-check vet test test-integration chart-test workflow-check envtest build
+.PHONY: check fmt-check mod-check vet vuln-check test test-integration chart-test workflow-check envtest build
 
-check: fmt-check mod-check vet test-integration chart-test
+check: fmt-check mod-check vet vuln-check test-integration chart-test
 
 mod-check:
 	$(GO) mod tidy -diff
@@ -20,6 +21,9 @@ fmt-check:
 
 vet:
 	$(GO) vet ./...
+
+vuln-check:
+	CGO_ENABLED=0 $(GO) run golang.org/x/vuln/cmd/govulncheck@$(GOVULNCHECK_VERSION) ./cmd/provider
 
 test:
 	$(GO) test -race ./...

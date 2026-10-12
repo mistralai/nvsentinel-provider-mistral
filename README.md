@@ -53,7 +53,7 @@ The example uses namespace `nvsentinel`, provider ServiceAccount `nvsentinel-pro
 ```sh
 helm upgrade --install nvsentinel-provider-mistral \
   oci://ghcr.io/mistralai/charts/nvsentinel-provider-mistral \
-  --version 0.1.1 --namespace nvsentinel \
+  --version 0.1.2 --namespace nvsentinel \
   --values provider-values.yaml --wait
 ```
 

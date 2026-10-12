@@ -1,6 +1,6 @@
 module github.com/mistralai/nvsentinel-provider-mistral
 
-go 1.27.0
+go 1.27.2
 
 require (
 	github.com/nvidia/nvsentinel/api v0.0.0-20261005093934-a5b9e90fb372
@@ -48,7 +48,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.59.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/oauth2 v0.37.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/term v0.46.0 // indirect
