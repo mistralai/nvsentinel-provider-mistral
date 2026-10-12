@@ -47,6 +47,14 @@ auth:
   # Exact Kubernetes identity allowed to invoke the provider.
   serviceAccount: system:serviceaccount:nvsentinel:janitor
 
+networkPolicy:
+  enabled: true
+  # TCP 50051 is allowed from these pods in the namespace in auth.serviceAccount.
+  # Override the name label when Janitor uses nameOverride; labels are ANDed.
+  callerPodSelector:
+    matchLabels:
+      app.kubernetes.io/name: janitor
+
 tls:
   # Use either an existing kubernetes.io/tls Secret or cert-manager.
   existingSecret: ""

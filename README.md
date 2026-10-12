@@ -53,7 +53,7 @@ The example uses namespace `nvsentinel`, provider ServiceAccount `nvsentinel-pro
 ```sh
 helm upgrade --install nvsentinel-provider-mistral \
   oci://ghcr.io/mistralai/charts/nvsentinel-provider-mistral \
-  --version 0.1.0 --namespace nvsentinel \
+  --version 0.1.1 --namespace nvsentinel \
   --values provider-values.yaml --wait
 ```
 
@@ -90,6 +90,8 @@ janitor:
 ```
 
 The CA Secret must be in Janitor's namespace, with a `ca.crt` that trusts the provider's issuer **and any other providers Janitor uses**. Janitor's chart creates and mounts the authentication token automatically.
+
+The chart allows Janitor traffic by default; for custom pod labels, set `networkPolicy.callerPodSelector.matchLabels`.
 
 Existing `RebootNode` remediation now calls this provider after NVSentinel quarantines and drains the node. This provider supports reboot only; keep other actions routed to their existing providers.
 
