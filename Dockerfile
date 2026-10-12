@@ -14,6 +14,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 LABEL org.opencontainers.image.source="https://github.com/mistralai/nvsentinel-provider-mistral" \
       org.opencontainers.image.licenses="Apache-2.0"
+COPY LICENSE /LICENSE
 COPY --from=build /out/provider /provider
 USER 65532:65532
 EXPOSE 50051 8080
