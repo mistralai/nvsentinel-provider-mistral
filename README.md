@@ -29,7 +29,7 @@ Save this as `provider-values.yaml`. Replace the `<...>` values with your Comput
 
 ```yaml
 compute:
-  endpoint: https://<compute-api>
+  endpoint: https://console.mistralcompute.ai/api
   project: <project>
   region: <region>
   auth:
@@ -53,7 +53,7 @@ The example uses namespace `nvsentinel`, provider ServiceAccount `nvsentinel-pro
 ```sh
 helm upgrade --install nvsentinel-provider-mistral \
   oci://ghcr.io/mistralai/charts/nvsentinel-provider-mistral \
-  --version 0.1.1 --namespace nvsentinel \
+  --version 0.1.2 --namespace nvsentinel \
   --values provider-values.yaml --wait
 ```
 
@@ -96,3 +96,5 @@ The chart allows Janitor traffic by default; for custom pod labels, set `network
 Existing `RebootNode` remediation now calls this provider after NVSentinel quarantines and drains the node. This provider supports reboot only; keep other actions routed to their existing providers.
 
 See [Helm values](charts/nvsentinel-provider-mistral/values.yaml) for the remaining chart settings.
+
+Licensed under the [Apache License 2.0](LICENSE).

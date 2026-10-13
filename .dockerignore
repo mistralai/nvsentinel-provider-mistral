@@ -6,3 +6,6 @@
 !internal/
 !internal/**
 !Dockerfile
+!LICENSE
+!scripts/
+!scripts/collect-licenses.sh
