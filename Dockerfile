@@ -17,7 +17,7 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO_LICENSES=/tools/go-licenses \
     sh /tools/collect-licenses.sh /out/licenses
 
-FROM gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
+FROM gcr.io/distroless/static-debian13:nonroot@sha256:d62067879de890a1def9da0e7766b7d20810a5e5555cef8506b752437d7a3e88
 LABEL org.opencontainers.image.source="https://github.com/mistralai/nvsentinel-provider-mistral" \
       org.opencontainers.image.licenses="Apache-2.0"
 COPY LICENSE /LICENSE
